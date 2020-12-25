@@ -10,7 +10,7 @@ export async function addStakingData(obj){
     let address = obj.address;
     let network = obj.network;
     var loopindex;
-    let round = 0;
+    let round = 0; 
 
     /*
     This function runs at least once and parses the staking info for the given address. The API is structured in a way that you specify which
@@ -41,7 +41,7 @@ export async function addStakingData(obj){
                             obj.data.list[i].numberPayouts = obj.data.list[i].numberPayouts + 1;
                             obj.data.list[i].blockNumber = obj.data.list[i].blockNumber + ' and ' + stakingObject.data.list[x].block_num;
                             obj.data.list[i].extrinsicHash = obj.data.list[i].extrinsicHash + ' and ' + stakingObject.data.list[x].extrinsic_hash;
-                        // if an entrie has only the default values we add the ones from the staking object.
+                        // if an entry has only the default values we add the ones from the staking object.
                         } else {
                             obj.data.list[i].amountPlanks = parseInt(stakingObject.data.list[x].amount); 
                             obj.data.list[i].numberPayouts = obj.data.list[i].numberPayouts + 1;
@@ -51,26 +51,30 @@ export async function addStakingData(obj){
                     }
                 }
             } 
-        finished = checkIfEnd(stakingObject, obj, loopindex);
+        finished = checkIfEnd(stakingObject, obj.data.list[0].day, loopindex);
         } while (finished == false);
 
     
     obj.data.numberRewardsParsed = found;
+
+    if(obj.data.numberRewardsParsed == 0){
+        throw new Error('No rewards found to parse. Please specify a different time window where rewards were paid out.');
+    }
+
     obj.message = 'data collection complete';
     return obj;  
 }
 /*
-This function checks if the loop should continue. If the last entry (i.e. the longest date in history) of stakingObject has a smaller timestamp
-than that of the user specified one, it should continue, because there might be more rewards beyond that date. However, for that to be true, the
-staking object must have 100 entries (which basically means that there are more to come).
+This function checks if the loop should continue. It should continue whenever the last day retrieved by the staking object retrieved has a larger
+value (i.e. lies more towards the present) than the last day of the desired point to look into. In addition, the staking object needs to be full, so
+we know that there potentially are more rewards to get.
 */
-function checkIfEnd(stakingObj, obj, loopindex){
-    let endStakingObj = stakingObj.data.list.slice(-1)[0].block_timestamp;
-    let endObj = transformDDMMYYYtoUnix(obj.data.list.slice(-1)[0].day);
-    
-    let finished = true;
 
-    if((endStakingObj < endObj) && loopindex == 100){
+function checkIfEnd(stakingObj, lastDay, loopindex){
+    let finished = true;
+    let lastDayStakingObj = stakingObj.data.list.slice(-1)[0].block_timestamp;
+
+    if(transformDDMMYYYtoUnix(lastDay) < lastDayStakingObj && loopindex == 100){
         finished = false;
     }
     return finished;
@@ -99,9 +103,11 @@ async function getStakingObject(address, page, network){
     stakingObject = await curlRequest(options);
     stakingObject = JSON.parse(stakingObject);
 
+    // If the API returns a data.count == 0, no rewards were every logged for that address.
     if(stakingObject.data.count == 0){
-        throw new Error('Staking object empty - No rewards to parse. Please specify a different time window where rewards were paid out.');
+        throw new Error('This address does not seem to have received any rewards ever. Please check if you are using the correct address.');
     }
+
     return stakingObject;    
 }
 
@@ -115,12 +121,4 @@ async function curlRequest(options){
         }
       });
     });
-}
-
-function checkObj(obj){
-    if(obj.count == 0){
-        console.log('I was here');
-        process.exit()
-    }
-
 }

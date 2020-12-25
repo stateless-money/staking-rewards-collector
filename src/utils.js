@@ -17,13 +17,17 @@ export function dateToString(date){
     return day.concat('-', month, '-', year);
   }
 
-export function makeDaysArray(start, end) {
-    for(var arr=[],dt=new Date(start); dt<=end; dt.setDate(dt.getDate()+1)){
-        arr.push(new Date(dt));
+export function makeDaysArray(startDate, endDate) {
+    let dates = [];
+    const theDate = new Date(startDate);
+    while (theDate < endDate) {
+      dates = [...dates, new Date(theDate)];
+      theDate.setDate(theDate.getDate() + 1);
     }
-    arr = _transformArrayToString(arr);
-    return arr;
-};
+    dates = [...dates, endDate];
+    dates = _transformArrayToString(dates);
+    return dates;
+  };
 
 export function initializeObject(daysArray, network, address, currency, incomeTax, initialInvestment){
     let obj = {
@@ -152,24 +156,24 @@ function _calculateAnnualizedReturn(obj){
 function _getFirstandLastReward(obj){
     let i = 0;
     let max = obj.data.numberOfDays;
-    let x = max;
+    let x = max - 1;
     var firstReward;
     var lastReward;
 
     while (i < max) {
-        i++;
-        if (obj.data.list[i].numberPayouts != 0) {    
+        if (obj.data.list[i].numberPayouts != 0) {
             firstReward = obj.data.list[i].day; 
             break;
         } 
+        i++;
     }
 
-    while (x > 0) {
-        x--;
+    while (x >= 0) {
         if (obj.data.list[x].numberPayouts != 0) {    
            lastReward = obj.data.list[x].day;
             break;
-        } 
+        }
+        x--;
     }
     return {
         'firstReward': firstReward,
@@ -191,12 +195,14 @@ export function verifyUserInput(userInput){
         throw new Error('Start date is in the future.');
     }
 
-    if(start.valueOf() < 1597795200000 & network == 'polkadot' & priceData == 'y'){
-        throw new Error('You are requesting price data when there were no prices available.');
+    if(end.valueOf() < 1597708800000 & network == 'polkadot' & priceData == 'y'){
+        userInput.priceData = 'n';
+        console.log('Your requested time window lies before prices are available. Switching off price data.');    
     }
     
-    if(start.valueOf() < 1568937600000 & network == 'kusama' & priceData == 'y'){
-        throw new Error('You are requesting price data when there were no prices available.');
+    if(end.valueOf() < 1568851200000 & network == 'kusama' & priceData == 'y'){
+        userInput.priceData = 'n';
+        console.log('Your requested time window lies before prices are available. Switching off price data.');
     }
-
+    return userInput;
 }
